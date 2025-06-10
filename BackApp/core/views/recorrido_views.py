@@ -142,3 +142,13 @@ class RutaRecorridoView(APIView):
         ruta = obtener_ruta_coords(origen, destino)
 
         return Response({"ruta": ruta})
+
+from core.serializers import RecorridoDetalleSerializer
+
+class RecorridoDetalleView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, recorrido_id):
+        recorrido = get_object_or_404(Recorrido, pk=recorrido_id)
+        serializer = RecorridoDetalleSerializer(recorrido)
+        return Response(serializer.data)

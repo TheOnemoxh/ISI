@@ -88,3 +88,35 @@ class HistorialPasajeroSerializer(serializers.ModelSerializer):
     class Meta:
         model = SolicitudDeViaje
         fields = ['id', 'recorrido_origen', 'recorrido_destino', 'fecha', 'estado']
+
+from rest_framework import serializers
+from core.models import Recorrido, Usuario, Vehiculo
+
+class ConductorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Usuario
+        fields = ['nombres', 'apellidos', 'correo', 'celular']
+
+class VehiculoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Vehiculo
+        fields = ['marca', 'modelo', 'anio', 'color', 'placa', 'numero_asientos']
+
+class RecorridoDetalleSerializer(serializers.ModelSerializer):
+    conductor = ConductorSerializer(read_only=True)
+    vehiculo = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Recorrido
+        fields = [
+            'id', 'origen', 'destino', 'fecha_hora_salida', 'precio_total',
+            'estado', 'asientos_disponibles', 'distancia_km',
+            'conductor', 'vehiculo'
+        ]
+
+    def get_vehiculo(self, obj):
+        try:
+            vehiculo = Vehiculo.objects.get(usuario=obj.conductor)
+            return VehiculoSerializer(vehiculo).data
+        except Vehiculo.DoesNotExist:
+            return None

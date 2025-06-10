@@ -27,11 +27,16 @@ class _TravelResultsScreenState extends State<TravelResultsScreen> {
   }
 
   Future<void> cargarViajesDisponibles() async {
-    final data = await ApiService().obtenerRecorridosPendientes();
-    setState(() {
-      viajes = data;
-      cargando = false;
-    });
+    try {
+      final data = await ApiService().obtenerRecorridosPendientes();
+      setState(() {
+        viajes = data;
+        cargando = false;
+      });
+    } catch (e) {
+      print("❌ Error al cargar viajes: $e");
+      setState(() => cargando = false);
+    }
   }
 
   @override
@@ -46,7 +51,6 @@ class _TravelResultsScreenState extends State<TravelResultsScreen> {
                   itemCount: viajes.length,
                   itemBuilder: (context, index) {
                     final viaje = viajes[index];
-
                     return Card(
                       margin: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 8),
@@ -70,7 +74,7 @@ class _TravelResultsScreenState extends State<TravelResultsScreen> {
                             context,
                             MaterialPageRoute(
                               builder: (_) => TravelDetailScreen(
-                                viaje: viaje,
+                                recorridoId: viaje["id"],
                                 puntoRecogida: widget.puntoRecogida,
                                 puntoDejada: widget.puntoDejada,
                               ),

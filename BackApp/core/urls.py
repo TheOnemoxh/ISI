@@ -15,10 +15,10 @@ from core.views.recorrido_views import CambiarEstadoRecorridoView
 from core.views.historial_views import HistorialConductorView, HistorialPasajeroView
 from core.views.recorrido_views import RecorridoMapaView
 from core.views.recorrido_views import RutaRecorridoView
-
-
+from core.views.recorrido_views import RecorridoDetalleView
 
 urlpatterns = [
+    path('recorridos/<int:recorrido_id>/detalles/', RecorridoDetalleView.as_view()),
     path('recorridos/<int:recorrido_id>/ruta/', RutaRecorridoView.as_view()),
     path('registro/', RegistroView.as_view()),
     path('login/', LoginView.as_view()),
