@@ -1,13 +1,15 @@
-import openrouteservice
+import requests
 from django.conf import settings
 
-client = openrouteservice.Client(key=settings.ORS_API_KEY)
+url = "https://us1.locationiq.com/v1"
+key = settings.LOCATIONIQ_API_KEY
 
-
+#Busca una dirección y retorna sus coordenadas (latitud, longitud)
 def geocodificar_direccion(direccion):
     try:
-        resultado = client.pelias_search(text=direccion)
-        coordenadas = resultado['features'][0]['geometry']['coordinates']
+        data = {'key': key,'q': direccion, 'format': 'json'}
+        response = requests.get(url+'/search', data)
+        coordenadas = response['lat']['lon']
         # Retorna como (lat, lon)
         return coordenadas[1], coordenadas[0]
     except Exception as e:
@@ -18,16 +20,14 @@ def geocodificar_direccion(direccion):
 def calcular_distancia_km(origen, destino):
     try:
         coords = [(origen[1], origen[0]), (destino[1], destino[0])]
-        ruta = client.directions(coords)
-        distancia_metros = ruta['routes'][0]['summary']['distance']
+        data = {'key': key, 'steps': True, 'alternatives': False, 'geometries': 'polyline', 'overview': 'full'}
+        response = requests.get(url + '/directions/driving/', data)
+        ruta = response['routes']
+        distancia_metros = ruta[0]['distance']
         return round(distancia_metros / 1000, 2)  # en kilómetros
     except Exception as e:
         print("Error al calcular distancia:", e)
         return 0
-
-
-
-client = openrouteservice.Client(key=settings.OPENROUTESERVICE_API_KEY)
 
 def obtener_ruta_coords(origen, destino):
     # origen y destino son (lon, lat) → como espera la API
