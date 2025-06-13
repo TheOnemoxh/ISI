@@ -21,11 +21,11 @@ class SolicitudDeViajeView(APIView):
         data['pasajero'] = request.user.id
 
         # Verificar si ya solicitó este recorrido
-        if SolicitudDeViaje.objects.filter(
-            recorrido_id=data['recorrido'],
-            pasajero=request.user
-        ).exists():
-            return Response({'detalle': 'Ya enviaste una solicitud a este recorrido.'}, status=400)
+        # if SolicitudDeViaje.objects.filter(
+        #     recorrido_id=data['recorrido'],
+        #     pasajero=request.user
+        # ).exists():
+        #     return Response({'detalle': 'Ya enviaste una solicitud a este recorrido.'}, status=400)
 
         serializer = SolicitudDeViajeSerializer(data=data)
         if serializer.is_valid():
