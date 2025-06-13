@@ -125,7 +125,7 @@ class RecorridoMapaView(APIView):
         return Response(data)
 
 
-from core.utils.geo import obtener_ruta_coords
+from core.utils.geo import obtener_ruta
 
 class RutaRecorridoView(APIView):
     permission_classes = [IsAuthenticated]
@@ -139,7 +139,7 @@ class RutaRecorridoView(APIView):
         origen = (recorrido.lon_origen, recorrido.lat_origen)
         destino = (recorrido.lon_destino, recorrido.lat_destino)
 
-        ruta = obtener_ruta_coords(origen, destino)
+        ruta = obtener_ruta(origen, destino)
 
         return Response({"ruta": ruta})
 
