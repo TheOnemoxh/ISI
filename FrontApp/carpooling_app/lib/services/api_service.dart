@@ -1,9 +1,35 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'auth_service.dart';
 
 class ApiService {
   final String baseUrl = "http://192.168.1.17:8000/api";
+
+  /// Geocodificar dirección con LocationIQ
+  Future<Map<String, double>?> geocodificarDireccion(String direccion) async {
+    const apiKey = 'pk.d1aabacbcfacc94fe6c3e553c634498e';
+    final url =
+        'https://us1.locationiq.com/v1/search.php?key=$apiKey&q=$direccion&format=json';
+
+    try {
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final resultados = jsonDecode(response.body);
+        if (resultados is List && resultados.isNotEmpty) {
+          final item = resultados.first;
+          final lat = double.tryParse(item['lat'] ?? '');
+          final lon = double.tryParse(item['lon'] ?? '');
+          if (lat != null && lon != null) {
+            return {"lat": lat, "lon": lon};
+          }
+        }
+      }
+    } catch (e) {
+      print("❌ Error geocodificando dirección: $e");
+    }
+    return null;
+  }
 
   /// Iniciar sesión
   Future<Map<String, dynamic>?> login(String email, String password) async {
@@ -32,16 +58,10 @@ class ApiService {
       body: jsonEncode(data),
     );
 
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      return true;
-    } else {
-      print(
-          "❌ Error al registrar usuario: ${response.statusCode} - ${response.body}");
-      return false;
-    }
+    return response.statusCode == 200 || response.statusCode == 201;
   }
 
-  /// Obtener datos del usuario autenticado (usando token)
+  /// Obtener datos del usuario autenticado
   Future<Map<String, dynamic>?> getUsuarioActual(String token) async {
     final url = Uri.parse('$baseUrl/usuario/');
     final response = await http.get(
@@ -61,7 +81,6 @@ class ApiService {
     }
   }
 
-  /// Obtener usuario actual desde SharedPreferences
   Future<Map<String, dynamic>?> getUsuarioActualConToken() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
@@ -69,7 +88,6 @@ class ApiService {
     return await getUsuarioActual(token);
   }
 
-  /// Editar perfil
   Future<bool> editarPerfil({
     required String nombres,
     required String apellidos,
@@ -96,7 +114,6 @@ class ApiService {
     return response.statusCode == 200;
   }
 
-  /// Registrar vehículo
   Future<bool> registrarVehiculo(Map<String, dynamic> data) async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
@@ -115,7 +132,6 @@ class ApiService {
     return response.statusCode == 200 || response.statusCode == 201;
   }
 
-  /// Obtener vehículo del usuario
   Future<Map<String, dynamic>?> obtenerVehiculo() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
@@ -139,7 +155,6 @@ class ApiService {
     }
   }
 
-  /// Verificar si el usuario tiene vehículo
   Future<bool> tieneVehiculoRegistrado() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
@@ -157,11 +172,14 @@ class ApiService {
     return response.statusCode == 200;
   }
 
-  /// Enviar solicitud de viaje
   Future<bool> enviarSolicitudDeViaje({
     required int recorridoId,
     required String puntoRecogida,
     required String puntoDejada,
+    required double latRecogida,
+    required double lonRecogida,
+    required double latDejada,
+    required double lonDejada,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
@@ -178,13 +196,44 @@ class ApiService {
         "recorrido": recorridoId,
         "punto_recogida": puntoRecogida,
         "punto_dejada": puntoDejada,
+        "lat_recogida": latRecogida,
+        "lon_recogida": lonRecogida,
+        "lat_dejada": latDejada,
+        "lon_dejada": lonDejada,
       }),
     );
 
     return response.statusCode == 200 || response.statusCode == 201;
   }
 
-  /// Obtener recorridos con estado pendiente
+  /// ✅ CORREGIDO: consultar estado de solicitud
+  Future<String?> consultarEstadoSolicitud(int recorridoId) async {
+    final token = await AuthService().getToken();
+    final url = Uri.parse('$baseUrl/mis-solicitudes/');
+
+    final response = await http.get(
+      url,
+      headers: {
+        "Authorization": "Bearer $token",
+        "Content-Type": "application/json",
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      for (var solicitud in data) {
+        if (solicitud['recorrido'] == recorridoId) {
+          return solicitud['estado'];
+        }
+      }
+    } else {
+      print(
+          "❌ Error al consultar estado: ${response.statusCode} - ${response.body}");
+    }
+
+    return null;
+  }
+
   Future<List<Map<String, dynamic>>> obtenerRecorridosPendientes() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
@@ -214,7 +263,6 @@ class ApiService {
     return [];
   }
 
-  /// Obtener todos los recorridos con detalles (conductor y vehículo)
   Future<List<Map<String, dynamic>>> obtenerRecorridosConDetalles() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
@@ -241,7 +289,6 @@ class ApiService {
     return [];
   }
 
-  /// ✅ NUEVO: Obtener recorrido por ID con detalles
   Future<Map<String, dynamic>?> obtenerDetalleRecorridoPorId(
       int recorridoId) async {
     final prefs = await SharedPreferences.getInstance();
@@ -266,17 +313,20 @@ class ApiService {
     return null;
   }
 
-  /// Crear un nuevo recorrido
-  Future<bool> crearRecorrido({
+  Future<int?> crearRecorrido({
     required String origen,
     required String destino,
     required String fechaHoraSalida,
     required double precioTotal,
     required int asientosDisponibles,
+    required double latOrigen,
+    required double lonOrigen,
+    required double latDestino,
+    required double lonDestino,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
-    if (token == null) return false;
+    if (token == null) return null;
 
     final url = Uri.parse('$baseUrl/recorridos/');
     final response = await http.post(
@@ -291,9 +341,98 @@ class ApiService {
         "fecha_hora_salida": fechaHoraSalida,
         "precio_total": precioTotal.toStringAsFixed(2),
         "asientos_disponibles": asientosDisponibles,
+        "origen_lat": latOrigen,
+        "origen_lon": lonOrigen,
+        "destino_lat": latDestino,
+        "destino_lon": lonDestino,
       }),
     );
 
-    return response.statusCode == 200 || response.statusCode == 201;
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final data = jsonDecode(response.body);
+      return data["id"];
+    } else {
+      print(
+          "❌ Error al crear recorrido: ${response.statusCode} - ${response.body}");
+      return null;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> obtenerSolicitudesPorRecorrido(
+      int recorridoId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    if (token == null) return [];
+
+    final url = Uri.parse('$baseUrl/recorridos/$recorridoId/solicitudes/');
+    final response = await http.get(
+      url,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data is List) {
+        return data.cast<Map<String, dynamic>>();
+      }
+    }
+
+    print(
+        "❌ Error al obtener solicitudes: ${response.statusCode} - ${response.body}");
+    return [];
+  }
+
+  Future<bool> aceptarSolicitud(int solicitudId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    if (token == null) return false;
+
+    final url = Uri.parse('$baseUrl/solicitudes/$solicitudId/aceptar/');
+    final response = await http.patch(
+      url,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+    return response.statusCode == 200;
+  }
+
+  Future<bool> rechazarSolicitud(int solicitudId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    if (token == null) return false;
+
+    final url = Uri.parse('$baseUrl/solicitudes/$solicitudId/rechazar/');
+    final response = await http.patch(
+      url,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+    return response.statusCode == 200;
+  }
+
+  Future<bool> cambiarEstadoRecorrido(
+      int recorridoId, String nuevoEstado) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    if (token == null) return false;
+
+    final url = Uri.parse(
+        'http://192.168.1.17:8000/api/recorridos/$recorridoId/$nuevoEstado/');
+    final response = await http.patch(
+      url,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    return response.statusCode == 200;
   }
 }

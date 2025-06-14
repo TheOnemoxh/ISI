@@ -10,15 +10,13 @@ from core.serializers import (
     SolicitudDeViajeDetalleSerializer,
     MisSolicitudesSerializer
 )
-from core.utils.geo import geocodificar_direccion, calcular_distancia_km
 
 
 class SolicitudDeViajeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        data = request.data
-        data['pasajero'] = request.user.id
+        data = request.data.copy()
 
         # Verificar si ya solicitó este recorrido
         # if SolicitudDeViaje.objects.filter(
@@ -30,22 +28,6 @@ class SolicitudDeViajeView(APIView):
         serializer = SolicitudDeViajeSerializer(data=data)
         if serializer.is_valid():
             solicitud = serializer.save(pasajero=request.user)
-
-            # 🔍 Geolocalización
-            lat_r, lon_r = geocodificar_direccion(solicitud.punto_recogida)
-            lat_d, lon_d = geocodificar_direccion(solicitud.punto_dejada)
-
-            # 📏 Calcular distancia real
-            distancia = calcular_distancia_km((lat_r, lon_r), (lat_d, lon_d))
-
-            # 💾 Guardar coordenadas y distancia
-            solicitud.lat_recogida = lat_r
-            solicitud.lon_recogida = lon_r
-            solicitud.lat_dejada = lat_d
-            solicitud.lon_dejada = lon_d
-            solicitud.distancia_recorrida = distancia
-            solicitud.save()
-
             return Response(SolicitudDeViajeSerializer(solicitud).data, status=201)
 
         return Response(serializer.errors, status=400)

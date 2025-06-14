@@ -1,5 +1,12 @@
-from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.conf import settings  # ✅ para usar AUTH_USER_MODEL sin circular imports
+from core.utils.geo import calcular_distancia_km
+
+
+# ---------------------------
+# USUARIO PERSONALIZADO
+# ---------------------------
 
 class UsuarioManager(BaseUserManager):
     def create_user(self, correo, nombres, apellidos, celular, password=None, es_conductor=False):
@@ -52,8 +59,12 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
         return self.correo
 
 
+# ---------------------------
+# VEHÍCULO
+# ---------------------------
+
 class Vehiculo(models.Model):
-    usuario = models.OneToOneField(Usuario, on_delete=models.CASCADE)
+    usuario = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     marca = models.CharField(max_length=50)
     modelo = models.CharField(max_length=50)
     anio = models.PositiveIntegerField()
@@ -65,6 +76,10 @@ class Vehiculo(models.Model):
         return f'{self.marca} {self.modelo} ({self.placa})'
 
 
+# ---------------------------
+# RECORRIDO
+# ---------------------------
+
 class Recorrido(models.Model):
     ESTADOS_CHOICES = [
         ('pendiente', 'Pendiente'),
@@ -73,23 +88,30 @@ class Recorrido(models.Model):
         ('cancelado', 'Cancelado'),
     ]
 
-    conductor = models.ForeignKey(Usuario, on_delete=models.CASCADE)
-    origen = models.CharField(max_length=100)
-    destino = models.CharField(max_length=100)
+    conductor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    origen = models.CharField(max_length=255)
+    origen_lat = models.FloatField(null=True, blank=True)
+    origen_lon = models.FloatField(null=True, blank=True)
+
+    destino = models.CharField(max_length=255)
+    destino_lat = models.FloatField(null=True, blank=True)
+    destino_lon = models.FloatField(null=True, blank=True)
+
     fecha_hora_salida = models.DateTimeField()
     precio_total = models.DecimalField(max_digits=10, decimal_places=2)
-    estado = models.CharField(max_length=20, choices=ESTADOS_CHOICES, default='pendiente')
     asientos_disponibles = models.PositiveIntegerField()
 
-    # Nuevos campos de geolocalización
-    lat_origen = models.FloatField(null=True, blank=True)
-    lon_origen = models.FloatField(null=True, blank=True)
-    lat_destino = models.FloatField(null=True, blank=True)
-    lon_destino = models.FloatField(null=True, blank=True)
     distancia_km = models.FloatField(null=True, blank=True, help_text="Distancia real entre origen y destino en km")
+
+    estado = models.CharField(max_length=20, choices=ESTADOS_CHOICES, default='pendiente')
 
     def __str__(self):
         return f'{self.origen} → {self.destino} ({self.fecha_hora_salida})'
+
+
+# ---------------------------
+# SOLICITUD DE VIAJE
+# ---------------------------
 
 
 class SolicitudDeViaje(models.Model):
@@ -99,14 +121,14 @@ class SolicitudDeViaje(models.Model):
         ('rechazada', 'Rechazada'),
     ]
 
-    pasajero = models.ForeignKey(Usuario, on_delete=models.CASCADE)
+    pasajero = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     recorrido = models.ForeignKey(Recorrido, on_delete=models.CASCADE)
     estado = models.CharField(max_length=20, choices=ESTADOS_CHOICES, default='pendiente')
     punto_recogida = models.CharField(max_length=100)
     punto_dejada = models.CharField(max_length=100)
     distancia_recorrida = models.FloatField(help_text="Distancia estimada en kilómetros", default=0)
 
-    # Nuevos campos de geolocalización
+    # Geolocalización
     lat_recogida = models.FloatField(null=True, blank=True)
     lon_recogida = models.FloatField(null=True, blank=True)
     lat_dejada = models.FloatField(null=True, blank=True)
@@ -116,6 +138,12 @@ class SolicitudDeViaje(models.Model):
         return f'{self.pasajero.correo} → {self.recorrido}'
 
     def save(self, *args, **kwargs):
+        if self.lat_recogida and self.lon_recogida and self.lat_dejada and self.lon_dejada:
+            self.distancia_recorrida = calcular_distancia_km(
+                (self.lat_recogida, self.lon_recogida),
+                (self.lat_dejada, self.lon_dejada)
+            )
+
         if self.pk:
             estado_anterior = SolicitudDeViaje.objects.get(pk=self.pk).estado
         else:
@@ -135,6 +163,9 @@ class SolicitudDeViaje(models.Model):
 
         super().save(*args, **kwargs)
 
+# ---------------------------
+# CÁLCULO DE PRECIO
+# ---------------------------
 
 def calcular_precio_por_pasajero(recorrido):
     solicitudes = SolicitudDeViaje.objects.filter(recorrido=recorrido, estado='aceptada')

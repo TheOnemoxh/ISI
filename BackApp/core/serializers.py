@@ -1,5 +1,7 @@
 from rest_framework import serializers
 from core.models import Usuario
+from rest_framework import serializers
+from core.models import SolicitudDeViaje
 
 class UsuarioSerializer(serializers.ModelSerializer):
     class Meta:
@@ -20,21 +22,29 @@ class RecorridoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Recorrido
         fields = [
-            'id', 'origen', 'destino', 'fecha_hora_salida',
-            'precio_total', 'estado', 'asientos_disponibles'
+            'id',
+            'origen', 'origen_lat', 'origen_lon',
+            'destino', 'destino_lat', 'destino_lon',
+            'fecha_hora_salida', 'precio_total',
+            'asientos_disponibles', 'distancia_km',
+            'estado'
         ]
-        read_only_fields = ['estado']
 
-from core.models import SolicitudDeViaje
+
 
 class SolicitudDeViajeSerializer(serializers.ModelSerializer):
     class Meta:
         model = SolicitudDeViaje
         fields = [
-            'id', 'recorrido', 'punto_recogida', 'punto_dejada',
-            'distancia_recorrida', 'estado'
+            'id',
+            'recorrido',
+            'punto_recogida', 'lat_recogida', 'lon_recogida',
+            'punto_dejada', 'lat_dejada', 'lon_dejada',
+            'distancia_recorrida',
+            'estado'
         ]
-        read_only_fields = ['estado']
+        read_only_fields = ['distancia_recorrida', 'estado']
+
 
 class SolicitudDeViajeDetalleSerializer(serializers.ModelSerializer):
     pasajero_nombre = serializers.CharField(source='pasajero.nombres', read_only=True)
@@ -120,3 +130,17 @@ class RecorridoDetalleSerializer(serializers.ModelSerializer):
             return VehiculoSerializer(vehiculo).data
         except Vehiculo.DoesNotExist:
             return None
+class SolicitudPorRecorridoSerializer(serializers.ModelSerializer):
+    nombres = serializers.CharField(source='pasajero.nombres', read_only=True)
+    apellidos = serializers.CharField(source='pasajero.apellidos', read_only=True)
+    telefono = serializers.CharField(source='pasajero.celular', read_only=True)
+
+    class Meta:
+        model = SolicitudDeViaje
+        fields = [
+            'id',
+            'nombres', 'apellidos', 'telefono',
+            'punto_recogida', 'lat_recogida', 'lon_recogida',
+            'punto_dejada', 'lat_dejada', 'lon_dejada',
+            'distancia_recorrida', 'estado'
+        ]

@@ -1,7 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
 
 class DriverTripDetailScreen extends StatefulWidget {
-  const DriverTripDetailScreen({super.key});
+  final int recorridoId;
+
+  const DriverTripDetailScreen({super.key, required this.recorridoId});
 
   @override
   State<DriverTripDetailScreen> createState() => _DriverTripDetailScreenState();
@@ -9,29 +13,40 @@ class DriverTripDetailScreen extends StatefulWidget {
 
 class _DriverTripDetailScreenState extends State<DriverTripDetailScreen> {
   bool viajeIniciado = false;
+  List<Map<String, dynamic>> solicitudes = [];
+  Timer? pollingTimer;
 
-  List<Map<String, dynamic>> pasajeros = [
-    {
-      "nombre": "Laura",
-      "apellido": "Martínez",
-      "telefono": "3001234567",
-      "recogida": "Ciudad Jardín",
-      "dejada": "Barrio Junín",
-      "precio": 8000,
-      "estado": "pendiente",
-    },
-    {
-      "nombre": "Carlos",
-      "apellido": "Pérez",
-      "telefono": "3129876543",
-      "recogida": "Parque el Divino Niño",
-      "dejada": "Universidad",
-      "precio": 10000,
-      "estado": "pendiente",
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _cargarSolicitudes();
+    pollingTimer =
+        Timer.periodic(const Duration(seconds: 5), (_) => _cargarSolicitudes());
+  }
 
-  final precioTotal = 26000;
+  @override
+  void dispose() {
+    pollingTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _cargarSolicitudes() async {
+    final nuevasSolicitudes =
+        await ApiService().obtenerSolicitudesPorRecorrido(widget.recorridoId);
+    setState(() {
+      solicitudes = nuevasSolicitudes;
+    });
+  }
+
+  Future<void> _cambiarEstadoRecorrido(String nuevoEstado) async {
+    final exito = await ApiService()
+        .cambiarEstadoRecorrido(widget.recorridoId, nuevoEstado);
+    if (!exito) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error al cambiar el estado a $nuevoEstado")),
+      );
+    }
+  }
 
   void _viajeCompletado() {
     Navigator.popUntil(context, (route) => route.isFirst);
@@ -40,16 +55,18 @@ class _DriverTripDetailScreenState extends State<DriverTripDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final hayPasajerosAceptados =
-        pasajeros.any((p) => p["estado"] == "aceptado");
+        solicitudes.any((p) => p["estado"] == "aceptada");
 
     return Scaffold(
       appBar: AppBar(
-        title: Text("Detalle del recorrido"),
+        title: const Text("Detalle del recorrido"),
         actions: [
           TextButton(
-            onPressed: () =>
-                Navigator.popUntil(context, (route) => route.isFirst),
-            child: Text("Cancelar", style: TextStyle(color: Colors.red)),
+            onPressed: () async {
+              await _cambiarEstadoRecorrido('cancelado');
+              Navigator.popUntil(context, (route) => route.isFirst);
+            },
+            child: const Text("Cancelar", style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -58,26 +75,27 @@ class _DriverTripDetailScreenState extends State<DriverTripDetailScreen> {
           Container(
             height: 200,
             color: Colors.blue.shade100,
-            child: Center(child: Text("MAPA DE RUTA AQUÍ")),
+            child: const Center(child: Text("MAPA DE RUTA AQUÍ")),
           ),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             color: Colors.green.shade100,
             child: Text(
-              "Precio total: COP $precioTotal",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              "Solicitudes recibidas: ${solicitudes.length}",
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
           Expanded(
             child: ListView.builder(
-              itemCount: pasajeros.length,
+              itemCount: solicitudes.length,
               itemBuilder: (context, index) {
-                final p = pasajeros[index];
-                if (p["estado"] == "rechazado") return SizedBox.shrink();
+                final s = solicitudes[index];
+                if (s["estado"] == "rechazada") return const SizedBox.shrink();
 
                 return Card(
-                  margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  margin:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -86,36 +104,45 @@ class _DriverTripDetailScreenState extends State<DriverTripDetailScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text("${p["nombre"]} ${p["apellido"]}",
-                                style: TextStyle(
+                            Text("Solicitud #${s["id"]}",
+                                style: const TextStyle(
                                     fontSize: 16, fontWeight: FontWeight.bold)),
-                            Text("Teléfono: ${p["telefono"]}"),
-                            Text("Punto de recogida: ${p["recogida"]}"),
-                            Text("Lugar de dejada: ${p["dejada"]}"),
-                            Text("Precio a pagar: COP ${p["precio"]}"),
+                            Text("Punto de recogida: ${s["punto_recogida"]}"),
+                            Text("Lugar de dejada: ${s["punto_dejada"]}"),
+                            Text("Estado: ${s["estado"]}"),
                           ],
                         ),
                       ),
-                      if (p["estado"] == "pendiente")
+                      if (s["estado"] == "pendiente")
                         Row(
                           children: [
                             Expanded(
                               child: GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    pasajeros[index]["estado"] = "aceptado";
-                                  });
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                        content: Text(
-                                            "Has aceptado a ${p["nombre"]} ${p["apellido"]}")),
-                                  );
+                                onTap: () async {
+                                  final exito = await ApiService()
+                                      .aceptarSolicitud(s["id"]);
+                                  if (exito) {
+                                    setState(() {
+                                      solicitudes[index]["estado"] = "aceptada";
+                                    });
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                          content: Text("Solicitud aceptada")),
+                                    );
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                          content: Text(
+                                              "Error al aceptar solicitud")),
+                                    );
+                                  }
                                 },
                                 child: Container(
                                   color: Colors.green,
-                                  padding: EdgeInsets.symmetric(vertical: 12),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 12),
                                   alignment: Alignment.center,
-                                  child: Text("Aceptar",
+                                  child: const Text("Aceptar",
                                       style: TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.bold)),
@@ -124,21 +151,32 @@ class _DriverTripDetailScreenState extends State<DriverTripDetailScreen> {
                             ),
                             Expanded(
                               child: GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    pasajeros[index]["estado"] = "rechazado";
-                                  });
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                        content: Text(
-                                            "Has rechazado a ${p["nombre"]} ${p["apellido"]}")),
-                                  );
+                                onTap: () async {
+                                  final exito = await ApiService()
+                                      .rechazarSolicitud(s["id"]);
+                                  if (exito) {
+                                    setState(() {
+                                      solicitudes[index]["estado"] =
+                                          "rechazada";
+                                    });
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                          content: Text("Solicitud rechazada")),
+                                    );
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                          content: Text(
+                                              "Error al rechazar solicitud")),
+                                    );
+                                  }
                                 },
                                 child: Container(
                                   color: Colors.red,
-                                  padding: EdgeInsets.symmetric(vertical: 12),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 12),
                                   alignment: Alignment.center,
-                                  child: Text("Rechazar",
+                                  child: const Text("Rechazar",
                                       style: TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.bold)),
@@ -157,26 +195,45 @@ class _DriverTripDetailScreenState extends State<DriverTripDetailScreen> {
             Padding(
               padding: const EdgeInsets.all(16),
               child: ElevatedButton(
-                onPressed: () {
-                  setState(() {
-                    viajeIniciado = true;
-                  });
+                onPressed: () async {
+                  final exito = await ApiService()
+                      .cambiarEstadoRecorrido(widget.recorridoId, 'en_curso');
+                  if (exito) {
+                    setState(() {
+                      viajeIniciado = true;
+                    });
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Error al iniciar viaje")),
+                    );
+                  }
                 },
-                child: Text("Iniciar viaje"),
+                child: const Text("Iniciar viaje"),
                 style: ElevatedButton.styleFrom(
-                    minimumSize: Size(double.infinity, 45)),
+                    minimumSize: const Size(double.infinity, 45)),
               ),
             ),
           if (viajeIniciado)
             Padding(
               padding: const EdgeInsets.all(16),
               child: ElevatedButton(
-                onPressed: _viajeCompletado,
-                child: Text("Viaje completado"),
+                onPressed: () async {
+                  final exito = await ApiService()
+                      .cambiarEstadoRecorrido(widget.recorridoId, 'completado');
+                  if (exito) {
+                    _viajeCompletado();
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text("Error al completar el viaje")),
+                    );
+                  }
+                },
+                child: const Text("Viaje completado"),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
                   foregroundColor: Colors.white,
-                  minimumSize: Size(double.infinity, 45),
+                  minimumSize: const Size(double.infinity, 45),
                 ),
               ),
             ),

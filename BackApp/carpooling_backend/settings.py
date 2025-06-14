@@ -11,6 +11,8 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 from datetime import timedelta
 from pathlib import Path
+from decouple import config
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -172,6 +174,7 @@ SIMPLE_JWT = {
 
 ORS_API_KEY = "5b3ce3597851110001cf6248e135bad10a8847adbad5aeb940b13d96"
 OPENROUTESERVICE_API_KEY = "5b3ce3597851110001cf6248e135bad10a8847adbad5aeb940b13d96"
+LOCATIONIQ_API_KEY = config('LOCATIONIQ_API_KEY')
 
 INSTALLED_APPS += ['corsheaders']
 MIDDLEWARE = ['corsheaders.middleware.CorsMiddleware'] + MIDDLEWARE

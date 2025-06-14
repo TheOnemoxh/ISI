@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart' as launcher;
 import 'travel_results_screen.dart';
@@ -7,11 +8,19 @@ class TravelDetailScreen extends StatefulWidget {
   final int recorridoId;
   final String puntoRecogida;
   final String puntoDejada;
+  final double latRecogida;
+  final double lonRecogida;
+  final double latDejada;
+  final double lonDejada;
 
   const TravelDetailScreen({
     required this.recorridoId,
     required this.puntoRecogida,
     required this.puntoDejada,
+    required this.latRecogida,
+    required this.lonRecogida,
+    required this.latDejada,
+    required this.lonDejada,
     super.key,
   });
 
@@ -31,10 +40,18 @@ class _TravelDetailScreenState extends State<TravelDetailScreen> {
   bool viajeCompletado = false;
   bool cargando = true;
 
+  Timer? pollingTimer;
+
   @override
   void initState() {
     super.initState();
     cargarDetallesDelRecorrido();
+  }
+
+  @override
+  void dispose() {
+    pollingTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> cargarDetallesDelRecorrido() async {
@@ -85,6 +102,10 @@ class _TravelDetailScreenState extends State<TravelDetailScreen> {
           builder: (_) => TravelResultsScreen(
             puntoRecogida: widget.puntoRecogida,
             puntoDejada: widget.puntoDejada,
+            latRecogida: widget.latRecogida,
+            lonRecogida: widget.lonRecogida,
+            latDejada: widget.latDejada,
+            lonDejada: widget.lonDejada,
           ),
         ),
       );
@@ -98,6 +119,10 @@ class _TravelDetailScreenState extends State<TravelDetailScreen> {
         builder: (_) => TravelResultsScreen(
           puntoRecogida: widget.puntoRecogida,
           puntoDejada: widget.puntoDejada,
+          latRecogida: widget.latRecogida,
+          lonRecogida: widget.lonRecogida,
+          latDejada: widget.latDejada,
+          lonDejada: widget.lonDejada,
         ),
       ),
     );
@@ -117,13 +142,35 @@ class _TravelDetailScreenState extends State<TravelDetailScreen> {
       recorridoId: widget.recorridoId,
       puntoRecogida: widget.puntoRecogida,
       puntoDejada: widget.puntoDejada,
+      latRecogida: widget.latRecogida,
+      lonRecogida: widget.lonRecogida,
+      latDejada: widget.latDejada,
+      lonDejada: widget.lonDejada,
     );
 
-    if (exito) {
-      setState(() => conductorAcepto = true);
-    } else {
-      _rechazarViaje();
+    if (!exito) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("No se pudo enviar la solicitud")),
+      );
+      setState(() {
+        solicitudEnviada = false;
+        permitirRetroceso = true;
+      });
+      return;
     }
+
+    pollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) async {
+      final estado =
+          await ApiService().consultarEstadoSolicitud(widget.recorridoId);
+
+      if (estado == "aceptada") {
+        setState(() => conductorAcepto = true);
+        pollingTimer?.cancel();
+      } else if (estado == "rechazada") {
+        pollingTimer?.cancel();
+        _rechazarViaje();
+      }
+    });
   }
 
   @override

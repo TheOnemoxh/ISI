@@ -5,11 +5,19 @@ import 'travel_detail_screen.dart';
 class TravelResultsScreen extends StatefulWidget {
   final String puntoRecogida;
   final String puntoDejada;
+  final double latRecogida;
+  final double lonRecogida;
+  final double latDejada;
+  final double lonDejada;
 
   const TravelResultsScreen({
     super.key,
     required this.puntoRecogida,
     required this.puntoDejada,
+    required this.latRecogida,
+    required this.lonRecogida,
+    required this.latDejada,
+    required this.lonDejada,
   });
 
   @override
@@ -77,6 +85,10 @@ class _TravelResultsScreenState extends State<TravelResultsScreen> {
                                 recorridoId: viaje["id"],
                                 puntoRecogida: widget.puntoRecogida,
                                 puntoDejada: widget.puntoDejada,
+                                latRecogida: widget.latRecogida,
+                                lonRecogida: widget.lonRecogida,
+                                latDejada: widget.latDejada,
+                                lonDejada: widget.lonDejada,
                               ),
                             ),
                           );

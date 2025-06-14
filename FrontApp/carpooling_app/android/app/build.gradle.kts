@@ -7,7 +7,7 @@ plugins {
 android {
     namespace = "com.example.carpooling_app"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = "27.0.12077973" // ✅ corregido y solo una vez
+    ndkVersion = "27.0.12077973" // ✅ Versión NDK requerida por los plugins
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -15,7 +15,7 @@ android {
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        jvmTarget = "11"
     }
 
     defaultConfig {
