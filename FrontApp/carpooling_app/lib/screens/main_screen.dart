@@ -4,6 +4,8 @@ import '../services/api_service.dart';
 import 'home_screen.dart';
 import 'driver_home_screen.dart';
 import 'account_screen.dart';
+import 'passenger_history_screen.dart'; // Asegúrate de que este archivo exista
+import 'driver_trip_history_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -79,8 +81,10 @@ class _MainScreenState extends State<MainScreen> {
     }
 
     final pages = [
-      esConductor ? DriverHomeScreen() : HomeScreen(),
-      const Center(child: Text("Historial")),
+      esConductor ? const DriverHomeScreen() : const HomeScreen(),
+      esConductor
+          ? const DriverTripHistoryScreen()
+          : const PassengerHistoryScreen(),
       AccountScreen(
         esConductor: esConductor,
         onCambiarModo: cambiarModo,

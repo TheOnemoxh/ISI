@@ -435,4 +435,86 @@ class ApiService {
 
     return response.statusCode == 200;
   }
+
+  Future<Map<String, dynamic>?> obtenerDatosMapaRecorrido(
+      int recorridoId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    if (token == null) return null;
+
+    final url =
+        Uri.parse('http://192.168.1.17:8000/api/recorridos/$recorridoId/mapa/');
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      print("❌ Error obteniendo mapa del recorrido: ${response.body}");
+      return null;
+    }
+  }
+
+  Future<Map<String, String>> getHeaders() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    if (token == null) return {};
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
+  }
+
+  Future<List<Map<String, dynamic>>> obtenerHistorialPasajero() async {
+    final headers = await getHeaders();
+    final url = Uri.parse('http://192.168.1.17:8000/api/historial/pasajero/');
+
+    try {
+      final response = await http.get(url, headers: headers);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data is List) {
+          return List<Map<String, dynamic>>.from(data.reversed);
+        }
+      } else {
+        print(
+            "❌ Error al obtener historial: ${response.statusCode} - ${response.body}");
+      }
+    } catch (e) {
+      print("❌ Excepción al obtener historial: $e");
+    }
+
+    return [];
+  }
+
+  Future<List<Map<String, dynamic>>> obtenerHistorialConductor() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    if (token == null) return [];
+
+    final url = Uri.parse('$baseUrl/historial/conductor/');
+    final response = await http.get(
+      url,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data is List) {
+        return data.cast<Map<String, dynamic>>();
+      }
+    }
+
+    print("❌ Error al obtener historial conductor: ${response.body}");
+    return [];
+  }
 }

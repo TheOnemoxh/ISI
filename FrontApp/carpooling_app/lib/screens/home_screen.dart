@@ -3,6 +3,8 @@ import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 import 'dart:convert';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 import 'travel_results_screen.dart';
 
@@ -28,6 +30,8 @@ class _HomeScreenState extends State<HomeScreen> {
   double? lonDejada;
 
   Position? ubicacionActual;
+  final MapController _mapController = MapController();
+  List<LatLng> ruta = [];
 
   @override
   void initState() {
@@ -56,6 +60,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
       setState(() {
         ubicacionActual = ubicacion;
+        _mapController.move(
+          LatLng(ubicacion.latitude, ubicacion.longitude),
+          13,
+        );
       });
     } catch (e) {
       print("❌ Error obteniendo ubicación: $e");
@@ -68,13 +76,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final lat = ubicacionActual!.latitude;
     final lon = ubicacionActual!.longitude;
 
-    // Calculamos un bounding box alrededor de 0.05 grados (~5km aprox.)
-    final bounded = {
-      'viewbox': '${lon - 0.05},${lat + 0.05},${lon + 0.05},${lat - 0.05}',
-    };
-
     final url =
-        'https://us1.locationiq.com/v1/autocomplete.php?key=$LOCATIONIQ_KEY&q=$query&format=json&limit=5&viewbox=${bounded['viewbox']}&bounded=1';
+        'https://us1.locationiq.com/v1/autocomplete.php?key=$LOCATIONIQ_KEY&q=$query&format=json&limit=5&viewbox=${lon - 0.05},${lat + 0.05},${lon + 0.05},${lat - 0.05}&bounded=1';
 
     try {
       final response = await http.get(Uri.parse(url));
@@ -90,6 +93,35 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return [];
+  }
+
+  Future<void> obtenerRuta() async {
+    if (latRecogida == null ||
+        lonRecogida == null ||
+        latDejada == null ||
+        lonDejada == null) return;
+
+    final url =
+        'https://us1.locationiq.com/v1/directions/driving/$lonRecogida,$latRecogida;$lonDejada,$latDejada?key=$LOCATIONIQ_KEY&overview=full&geometries=geojson';
+
+    print("📡 Llamando a LocationIQ: $url");
+
+    try {
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final coordinates =
+            data['routes'][0]['geometry']['coordinates'] as List;
+        setState(() {
+          ruta =
+              coordinates.map((coord) => LatLng(coord[1], coord[0])).toList();
+        });
+      } else {
+        print("❌ Error al obtener ruta: ${response.body}");
+      }
+    } catch (e) {
+      print("❌ Error conectando con LocationIQ: $e");
+    }
   }
 
   void obtenerDatos() {
@@ -119,13 +151,52 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        Container(
-          height: double.infinity,
-          width: double.infinity,
-          color: Colors.blue.shade100,
-          child: const Center(
-            child: Text("MAPA AQUÍ",
-                style: TextStyle(color: Colors.black45, fontSize: 20)),
+        Positioned.fill(
+          child: FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              center: ubicacionActual != null
+                  ? LatLng(
+                      ubicacionActual!.latitude, ubicacionActual!.longitude)
+                  : LatLng(4.6097, -74.0817),
+              zoom: 13,
+            ),
+            children: [
+              TileLayer(
+                urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                userAgentPackageName: 'com.example.carpooling_app',
+              ),
+              if (ruta.isNotEmpty)
+                PolylineLayer(
+                  polylines: [
+                    Polyline(
+                      points: ruta,
+                      color: Colors.blue,
+                      strokeWidth: 4.0,
+                    ),
+                  ],
+                ),
+              MarkerLayer(
+                markers: [
+                  if (latRecogida != null && lonRecogida != null)
+                    Marker(
+                      width: 40,
+                      height: 40,
+                      point: LatLng(latRecogida!, lonRecogida!),
+                      builder: (ctx) =>
+                          const Icon(Icons.location_on, color: Colors.green),
+                    ),
+                  if (latDejada != null && lonDejada != null)
+                    Marker(
+                      width: 40,
+                      height: 40,
+                      point: LatLng(latDejada!, lonDejada!),
+                      builder: (ctx) =>
+                          const Icon(Icons.location_on, color: Colors.red),
+                    ),
+                ],
+              ),
+            ],
           ),
         ),
         Positioned(
@@ -168,6 +239,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     puntoRecogida = suggestion['display_name'];
                     latRecogida = double.tryParse(suggestion['lat']);
                     lonRecogida = double.tryParse(suggestion['lon']);
+                    setState(() {
+                      ruta.clear();
+                    });
+                    obtenerRuta();
                   },
                 ),
                 const SizedBox(height: 10),
@@ -192,6 +267,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     puntoDejada = suggestion['display_name'];
                     latDejada = double.tryParse(suggestion['lat']);
                     lonDejada = double.tryParse(suggestion['lon']);
+                    setState(() {
+                      ruta.clear();
+                    });
+                    obtenerRuta();
                   },
                 ),
                 const SizedBox(height: 10),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart' as launcher;
 import 'travel_results_screen.dart';
 import '../services/api_service.dart';
+import 'accepted_trip_tracking_screen.dart';
 
 class TravelDetailScreen extends StatefulWidget {
   final int recorridoId;
@@ -164,8 +165,15 @@ class _TravelDetailScreenState extends State<TravelDetailScreen> {
           await ApiService().consultarEstadoSolicitud(widget.recorridoId);
 
       if (estado == "aceptada") {
-        setState(() => conductorAcepto = true);
         pollingTimer?.cancel();
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AcceptedTripTrackingScreen(
+              recorridoId: widget.recorridoId,
+            ),
+          ),
+        );
       } else if (estado == "rechazada") {
         pollingTimer?.cancel();
         _rechazarViaje();

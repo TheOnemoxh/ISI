@@ -5,10 +5,9 @@ from rest_framework import status
 from django.shortcuts import get_object_or_404
 
 from core.models import Recorrido, SolicitudDeViaje
-from core.serializers import RecorridoSerializer, PasajeroAceptadoSerializer
+from core.serializers import RecorridoSerializer, PasajeroAceptadoSerializer, RecorridoDetalleSerializer
 from core.utils.precios import calcular_precio_por_pasajero
-from core.utils.geo import geocodificar_direccion, calcular_distancia_km
-from core.utils.geo import calcular_distancia_km
+from core.utils.geo import geocodificar_direccion, calcular_distancia_km, obtener_ruta
 
 
 class RecorridoView(APIView):
@@ -39,7 +38,6 @@ class RecorridoView(APIView):
             recorrido = serializer.save(conductor=request.user)
             return Response(RecorridoSerializer(recorrido).data, status=201)
         return Response(serializer.errors, status=400)
-
 
 
 class PrecioPorPasajeroView(APIView):
@@ -79,11 +77,11 @@ class CambiarEstadoRecorridoView(APIView):
         if nuevo_estado not in ['en_curso', 'completado', 'cancelado']:
             return Response({'detalle': 'Estado inválido.'}, status=400)
 
-
         recorrido.estado = nuevo_estado
         recorrido.save()
 
         return Response({'mensaje': f'Recorrido marcado como "{nuevo_estado}".'})
+
 
 class RecorridoMapaView(APIView):
     permission_classes = [IsAuthenticated]
@@ -99,11 +97,11 @@ class RecorridoMapaView(APIView):
         data = {
             "recorrido": {
                 "origen": recorrido.origen,
-                "lat_origen": recorrido.lat_origen,
-                "lon_origen": recorrido.lon_origen,
+                "lat_origen": recorrido.origen_lat,
+                "lon_origen": recorrido.origen_lon,
                 "destino": recorrido.destino,
-                "lat_destino": recorrido.lat_destino,
-                "lon_destino": recorrido.lon_destino,
+                "lat_destino": recorrido.destino_lat,
+                "lon_destino": recorrido.destino_lon,
             },
             "pasajeros": [
                 {
@@ -123,8 +121,6 @@ class RecorridoMapaView(APIView):
         return Response(data)
 
 
-from core.utils.geo import obtener_ruta
-
 class RutaRecorridoView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -141,7 +137,6 @@ class RutaRecorridoView(APIView):
 
         return Response({"ruta": ruta})
 
-from core.serializers import RecorridoDetalleSerializer
 
 class RecorridoDetalleView(APIView):
     permission_classes = [IsAuthenticated]
