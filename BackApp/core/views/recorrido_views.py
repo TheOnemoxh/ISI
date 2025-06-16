@@ -29,6 +29,11 @@ class RecorridoView(APIView):
             destino_coords = (float(data.get('destino_lat')), float(data.get('destino_lon')))
             distancia = calcular_distancia_km(origen_coords, destino_coords)
             data['distancia_km'] = distancia
+
+            # ✅ Cálculo del precio total del recorrido
+            precio_total = distancia * 2500
+            data['precio_total'] = precio_total
+
         except Exception as e:
             print("❌ Error al calcular distancia:", e)
             return Response({'detalle': 'Error en los datos de coordenadas para calcular la distancia.'}, status=400)
@@ -38,6 +43,7 @@ class RecorridoView(APIView):
             recorrido = serializer.save(conductor=request.user)
             return Response(RecorridoSerializer(recorrido).data, status=201)
         return Response(serializer.errors, status=400)
+
 
 
 class PrecioPorPasajeroView(APIView):
@@ -89,6 +95,7 @@ class RecorridoMapaView(APIView):
     def get(self, request, recorrido_id):
         recorrido = get_object_or_404(Recorrido, pk=recorrido_id)
 
+        # Validar que sea el conductor o uno de los pasajeros
         if request.user != recorrido.conductor and not SolicitudDeViaje.objects.filter(recorrido=recorrido, pasajero=request.user).exists():
             return Response({'detalle': 'No tienes permiso para ver este mapa.'}, status=403)
 
@@ -102,6 +109,10 @@ class RecorridoMapaView(APIView):
                 "destino": recorrido.destino,
                 "lat_destino": recorrido.destino_lat,
                 "lon_destino": recorrido.destino_lon,
+
+                # 👇 Agregamos la ubicación actual del conductor
+                "lat_conductor": recorrido.ubicacion_actual_lat,
+                "lon_conductor": recorrido.ubicacion_actual_lon,
             },
             "pasajeros": [
                 {
@@ -119,6 +130,7 @@ class RecorridoMapaView(APIView):
         }
 
         return Response(data)
+
 
 
 class RutaRecorridoView(APIView):

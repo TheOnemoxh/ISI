@@ -27,7 +27,9 @@ class RecorridoSerializer(serializers.ModelSerializer):
             'destino', 'destino_lat', 'destino_lon',
             'fecha_hora_salida', 'precio_total',
             'asientos_disponibles', 'distancia_km',
-            'estado'
+            'estado',
+            'ubicacion_actual_lat',  # ← nuevo
+            'ubicacion_actual_lon'
         ]
 
 

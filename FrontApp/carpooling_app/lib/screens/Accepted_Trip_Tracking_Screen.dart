@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -22,16 +23,26 @@ class _AcceptedTripTrackingScreenState
     extends State<AcceptedTripTrackingScreen> {
   final MapController _mapController = MapController();
   LatLng? ubicacionActual;
+  LatLng? ubicacionConductor;
   List<LatLng> puntosRuta = [];
   List<LatLng> marcadores = [];
 
   bool recogido = false;
   bool viajeCompletado = false;
+  Timer? pollingTimer;
 
   @override
   void initState() {
     super.initState();
     _inicializar();
+    pollingTimer =
+        Timer.periodic(const Duration(seconds: 5), (_) => _cargarRuta());
+  }
+
+  @override
+  void dispose() {
+    pollingTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _inicializar() async {
@@ -96,6 +107,11 @@ class _AcceptedTripTrackingScreenState
         marcadoresTemp.add(destino);
       }
 
+      if (r['lat_conductor'] != null && r['lon_conductor'] != null) {
+        ubicacionConductor = LatLng(r['lat_conductor'], r['lon_conductor']);
+        print("📍 Ubicación del conductor: $ubicacionConductor");
+      }
+
       if (puntos.length < 2) {
         print("❌ No hay suficientes puntos para calcular ruta");
         return;
@@ -112,6 +128,7 @@ class _AcceptedTripTrackingScreenState
             json.decode(response.body)['routes'][0]['geometry']['coordinates'];
         final nuevaRuta =
             coords.map<LatLng>((c) => LatLng(c[1], c[0])).toList();
+
         setState(() {
           puntosRuta = nuevaRuta;
           marcadores = marcadoresTemp;
@@ -133,7 +150,6 @@ class _AcceptedTripTrackingScreenState
     return Scaffold(
       body: Stack(
         children: [
-          // 🗺 Mapa a pantalla completa
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
@@ -156,20 +172,26 @@ class _AcceptedTripTrackingScreenState
                   ],
                 ),
               MarkerLayer(
-                markers: marcadores
-                    .map((p) => Marker(
-                          point: p,
-                          width: 30,
-                          height: 30,
-                          builder: (_) =>
-                              const Icon(Icons.location_on, color: Colors.red),
-                        ))
-                    .toList(),
+                markers: [
+                  ...marcadores.map((p) => Marker(
+                        point: p,
+                        width: 30,
+                        height: 30,
+                        builder: (_) =>
+                            const Icon(Icons.location_on, color: Colors.red),
+                      )),
+                  if (ubicacionConductor != null)
+                    Marker(
+                      point: ubicacionConductor!,
+                      width: 30,
+                      height: 30,
+                      builder: (_) =>
+                          const Icon(Icons.directions_car, color: Colors.blue),
+                    ),
+                ],
               ),
             ],
           ),
-
-          // 🔘 Botones flotantes en la parte inferior
           Positioned(
             bottom: 30,
             left: 20,

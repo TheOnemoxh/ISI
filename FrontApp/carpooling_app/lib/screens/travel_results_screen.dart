@@ -72,7 +72,14 @@ class _TravelResultsScreenState extends State<TravelResultsScreen> {
                           children: [
                             Text("Hasta: ${viaje["destino"]}"),
                             Text("Fecha: ${viaje["fecha_hora_salida"]}"),
-                            Text("Precio: COP ${viaje["precio_total"]}"),
+                            Builder(builder: (context) {
+                              double precioTotal = double.tryParse(
+                                      viaje["precio_total"].toString()) ??
+                                  0;
+                              double precioPorPasajero = precioTotal / 4;
+                              return Text(
+                                  "Precio por pasajero: COP ${precioPorPasajero.toStringAsFixed(2)}");
+                            }),
                             Text(
                                 "Asientos disponibles: ${viaje["asientos_disponibles"]}"),
                           ],

@@ -19,6 +19,7 @@ class DriverTripDetailScreen extends StatefulWidget {
 }
 
 class _DriverTripDetailScreenState extends State<DriverTripDetailScreen> {
+  Timer? ubicacionTimer;
   final MapController _mapController = MapController();
   List<Map<String, dynamic>> solicitudes = [];
   List<LatLng> puntosRuta = [];
@@ -31,15 +32,30 @@ class _DriverTripDetailScreenState extends State<DriverTripDetailScreen> {
   void initState() {
     super.initState();
     _inicializarPantalla();
+
+    // 🔁 Polling de solicitudes y ruta
     pollingTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
       await _cargarSolicitudes();
       await _cargarRuta();
+    });
+
+    // 🚗 Enviar ubicación del conductor al backend
+    ubicacionTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      await ApiService().actualizarUbicacionConductor(
+        widget.recorridoId,
+        pos.latitude,
+        pos.longitude,
+      );
     });
   }
 
   @override
   void dispose() {
     pollingTimer?.cancel();
+    ubicacionTimer?.cancel();
     super.dispose();
   }
 
@@ -203,15 +219,23 @@ class _DriverTripDetailScreenState extends State<DriverTripDetailScreen> {
                     ],
                   ),
                 MarkerLayer(
-                  markers: marcadores
-                      .map((p) => Marker(
-                            point: p,
-                            width: 30,
-                            height: 30,
-                            builder: (_) => const Icon(Icons.location_on,
-                                color: Colors.black),
-                          ))
-                      .toList(),
+                  markers: [
+                    ...marcadores.map((p) => Marker(
+                          point: p,
+                          width: 30,
+                          height: 30,
+                          builder: (_) => const Icon(Icons.location_on,
+                              color: Colors.black),
+                        )),
+                    if (ubicacionActual != null)
+                      Marker(
+                        point: ubicacionActual!,
+                        width: 30,
+                        height: 30,
+                        builder: (_) => const Icon(Icons.directions_car,
+                            color: Colors.blue),
+                      ),
+                  ],
                 ),
               ],
             ),

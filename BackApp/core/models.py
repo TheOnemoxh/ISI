@@ -104,6 +104,9 @@ class Recorrido(models.Model):
     distancia_km = models.FloatField(null=True, blank=True, help_text="Distancia real entre origen y destino en km")
 
     estado = models.CharField(max_length=20, choices=ESTADOS_CHOICES, default='pendiente')
+    ubicacion_actual_lat = models.FloatField(null=True, blank=True)
+    ubicacion_actual_lon = models.FloatField(null=True, blank=True)
+
 
     def __str__(self):
         return f'{self.origen} → {self.destino} ({self.fecha_hora_salida})'

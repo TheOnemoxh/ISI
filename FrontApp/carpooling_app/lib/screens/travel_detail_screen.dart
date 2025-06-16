@@ -229,8 +229,32 @@ class _TravelDetailScreenState extends State<TravelDetailScreen> {
               const SizedBox(height: 20),
               const Text("Precio",
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              Text("COP ${viaje!['precio_total']}",
-                  style: const TextStyle(fontSize: 20, color: Colors.green)),
+
+// Nuevo: cálculo del precio total y por pasajero
+              Builder(builder: (context) {
+                double precioTotal =
+                    double.tryParse(viaje?['precio_total'].toString() ?? '0') ??
+                        0;
+                double precioPorPasajero = precioTotal / 4;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                        "Total del recorrido: COP ${precioTotal.toStringAsFixed(2)}",
+                        style: const TextStyle(
+                            fontSize: 16, color: Colors.black87)),
+                    const SizedBox(height: 5),
+                    Text(
+                        "Precio por pasajero: COP ${precioPorPasajero.toStringAsFixed(2)}",
+                        style: const TextStyle(
+                            fontSize: 20,
+                            color: Colors.green,
+                            fontWeight: FontWeight.bold)),
+                  ],
+                );
+              }),
+
               const SizedBox(height: 30),
               if (!solicitudEnviada)
                 ElevatedButton(

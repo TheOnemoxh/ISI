@@ -517,4 +517,30 @@ class ApiService {
     print("❌ Error al obtener historial conductor: ${response.body}");
     return [];
   }
+
+  Future<void> actualizarUbicacionConductor(
+      int recorridoId, double lat, double lon) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    if (token == null) return;
+
+    final url = Uri.parse(
+        'http://192.168.1.17:8000/api/ubicacion/recorrido/$recorridoId/');
+
+    final response = await http.patch(
+      url,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'ubicacion_actual_lat': lat,
+        'ubicacion_actual_lon': lon,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      print("❌ Error enviando ubicación: ${response.body}");
+    }
+  }
 }
