@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'auth_service.dart';
 
 class ApiService {
-  final String baseUrl = "http://192.168.1.17:8000/api";
+  final String baseUrl = 'http://3.138.143.160/api';
 
   /// Geocodificar dirección con LocationIQ
   Future<Map<String, double>?> geocodificarDireccion(String direccion) async {
@@ -423,8 +423,7 @@ class ApiService {
     final token = prefs.getString('token');
     if (token == null) return false;
 
-    final url = Uri.parse(
-        'http://192.168.1.17:8000/api/recorridos/$recorridoId/$nuevoEstado/');
+    final url = Uri.parse('${baseUrl}recorridos/$recorridoId/$nuevoEstado/');
     final response = await http.patch(
       url,
       headers: {
@@ -442,8 +441,7 @@ class ApiService {
     final token = prefs.getString('token');
     if (token == null) return null;
 
-    final url =
-        Uri.parse('http://192.168.1.17:8000/api/recorridos/$recorridoId/mapa/');
+    final url = Uri.parse('${baseUrl}recorridos/$recorridoId/mapa/');
 
     final response = await http.get(
       url,
@@ -473,7 +471,7 @@ class ApiService {
 
   Future<List<Map<String, dynamic>>> obtenerHistorialPasajero() async {
     final headers = await getHeaders();
-    final url = Uri.parse('http://192.168.1.17:8000/api/historial/pasajero/');
+    final url = Uri.parse('${baseUrl}historial/pasajero/');
 
     try {
       final response = await http.get(url, headers: headers);
@@ -524,8 +522,7 @@ class ApiService {
     final token = prefs.getString('token');
     if (token == null) return;
 
-    final url = Uri.parse(
-        'http://192.168.1.17:8000/api/ubicacion/recorrido/$recorridoId/');
+    final url = Uri.parse('${baseUrl}ubicacion/recorrido/$recorridoId/');
 
     final response = await http.patch(
       url,

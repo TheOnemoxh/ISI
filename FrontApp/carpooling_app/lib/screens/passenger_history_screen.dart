@@ -22,7 +22,7 @@ class _PassengerHistoryScreenState extends State<PassengerHistoryScreen> {
 
   Future<void> _cargarHistorial() async {
     final response = await http.get(
-      Uri.parse("http://192.168.1.17:8000/api/historial/pasajero/"),
+      Uri.parse("http://3.138.143.160/api/historial/pasajero/"),
       headers: await ApiService().getHeaders(), // Usa tu método de headers
     );
 
